@@ -42,4 +42,16 @@ describe("buildSplitView", () => {
     expect(document.getElementById("ls-root")).toBeNull();
     expect(document.documentElement.hasAttribute("data-ls-active")).toBe(false);
   });
+
+  it("injects the layout style only once across rebuilds", () => {
+    buildSplitView(document).destroy();
+    buildSplitView(document);
+    expect(document.querySelectorAll("#ls-layout-style").length).toBe(1);
+  });
+
+  it("returns the actual pane elements as left/right", () => {
+    const view = buildSplitView(document);
+    expect(view.left).toBe(document.querySelector(".ls-left"));
+    expect(view.right).toBe(document.querySelector(".ls-right"));
+  });
 });

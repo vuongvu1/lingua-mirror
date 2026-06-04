@@ -25,6 +25,13 @@ function injectStyle(doc: Document): void {
   doc.head.appendChild(style);
 }
 
+/**
+ * Build the two-pane split overlay from the current document.
+ * The caller owns the lifecycle: call `destroy()` before building again —
+ * calling this twice without destroying leaks a second `#ls-root` overlay.
+ * The injected layout `<style>` is intentionally left in <head> on destroy;
+ * it is inert once `data-ls-active` is removed.
+ */
 export function buildSplitView(doc: Document): SplitView {
   injectStyle(doc);
 
