@@ -17,13 +17,15 @@ and the plans in `docs/superpowers/plans/` before changing behavior.
 
 ## Commands
 
-- `npm run dev` — launch a dev browser with the extension (HMR)
-- `npm run build` — production build to `.output/chrome-mv3/` (load unpacked from there)
-- `npm run compile` — `tsc --noEmit` type-check
-- `npm test` — run Vitest once · `npm run test:watch` — watch mode
-- `npm run zip` — package for the store
+This project uses **pnpm** (pinned via `packageManager` in `package.json`).
 
-Run `npm run compile` and `npm test` before considering any change done.
+- `pnpm dev` — launch a dev browser with the extension (HMR)
+- `pnpm build` — production build to `.output/chrome-mv3/` (load unpacked from there)
+- `pnpm compile` — `tsc --noEmit` type-check
+- `pnpm test` — run Vitest once · `pnpm test:watch` — watch mode
+- `pnpm zip` — package for the store
+
+Run `pnpm compile` and `pnpm test` before considering any change done.
 
 ## Architecture
 
