@@ -1,3 +1,14 @@
+import { TOGGLE_SPLIT } from "../src/messages";
+
 export default defineBackground(() => {
-  // Placeholder background worker. Real logic is added in a later task.
+  chrome.commands.onCommand.addListener(async (command) => {
+    if (command !== "toggle-split") return;
+    const [tab] = await chrome.tabs.query({
+      active: true,
+      currentWindow: true,
+    });
+    if (tab?.id != null) {
+      chrome.tabs.sendMessage(tab.id, { type: TOGGLE_SPLIT });
+    }
+  });
 });
