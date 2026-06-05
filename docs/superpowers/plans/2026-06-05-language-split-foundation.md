@@ -31,6 +31,7 @@ language-split/
     split-view.ts           # buildSplitView()/destroy() — the two-pane overlay
     split-view.test.ts
     messages.ts             # shared message type constant
+    active-tab.ts           # sendToActiveTab() — send a message to the active tab (added in impl)
   entrypoints/
     background.ts           # command -> message to active tab
     content.ts              # message listener -> build/teardown split + controls
@@ -46,6 +47,7 @@ Responsibilities:
 - `src/dom.ts` — small pure DOM helpers (starts with `stripIds`).
 - `src/split-view.ts` — owns the overlay structure and its teardown; knows nothing about translation or messaging.
 - `src/messages.ts` — shared message contract so background, popup, and content agree.
+- `src/active-tab.ts` — `sendToActiveTab(message)`; routes a message to the active tab's content script and no-ops on tabs without one (added during implementation to de-duplicate the background/popup send logic).
 - `entrypoints/*` — thin browser glue, no business logic.
 
 ---
