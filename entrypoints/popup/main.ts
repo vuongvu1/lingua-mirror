@@ -1,3 +1,4 @@
+import { sendToActiveTab } from "../../src/active-tab";
 import { LANGUAGES } from "../../src/languages";
 import { TOGGLE_SPLIT } from "../../src/messages";
 import { getSettings, saveSettings } from "../../src/settings";
@@ -26,13 +27,7 @@ async function init(): Promise<void> {
   rightSel.addEventListener("change", persist);
 
   toggleBtn.addEventListener("click", async () => {
-    const [tab] = await chrome.tabs.query({
-      active: true,
-      currentWindow: true,
-    });
-    if (tab?.id != null) {
-      chrome.tabs.sendMessage(tab.id, { type: TOGGLE_SPLIT });
-    }
+    await sendToActiveTab({ type: TOGGLE_SPLIT });
     window.close();
   });
 }
