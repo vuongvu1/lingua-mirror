@@ -1,8 +1,8 @@
-# Language Split — Design Spec
+# Lingua Mirror — Design Spec
 
 **Status:** Approved design, ready for implementation planning
 **Date:** 2026-06-05
-**Working name:** Language Split
+**Name:** Lingua Mirror
 
 ## Summary
 

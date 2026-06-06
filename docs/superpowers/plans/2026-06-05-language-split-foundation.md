@@ -1,4 +1,4 @@
-# Language Split — Plan 1: Foundation & Split View
+# Lingua Mirror — Plan 1: Foundation & Split View
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -15,7 +15,7 @@
 ## File Structure
 
 ```
-language-split/
+lingua-mirror/
   package.json              # scripts + deps
   wxt.config.ts             # manifest + WXT config
   tsconfig.json             # extends WXT-generated tsconfig
@@ -66,7 +66,7 @@ Responsibilities:
 
 ```json
 {
-  "name": "language-split",
+  "name": "lingua-mirror",
   "private": true,
   "type": "module",
   "version": "0.1.0",
@@ -96,14 +96,14 @@ import { defineConfig } from "wxt";
 
 export default defineConfig({
   manifest: {
-    name: "Language Split",
+    name: "Lingua Mirror",
     description:
       "Read any page side-by-side in two languages with synchronized hover-highlighting.",
     permissions: ["storage", "activeTab"],
     commands: {
       "toggle-split": {
         suggested_key: { default: "Ctrl+Shift+L", mac: "Command+Shift+L" },
-        description: "Toggle the language split on the current page",
+        description: "Toggle the Lingua Mirror split on the current page",
       },
     },
   },
@@ -672,7 +672,7 @@ export const LANGUAGES: Language[] = [
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
-    <div class="head">🌍 Language Split</div>
+    <div class="head">🌍 Lingua Mirror</div>
     <div class="body">
       <label class="field">
         <span>Left pane — translated</span>

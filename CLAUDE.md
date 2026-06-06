@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**Language Split** — a Chrome/Edge browser extension for learning languages. When
+**Lingua Mirror** — a Chrome/Edge browser extension for learning languages. When
 activated, it splits the current page into two side-by-side panes (one the site's
 original, one a translation) and highlights matching sentences across both panes on
 hover.
