@@ -61,6 +61,13 @@ export default defineContentScript({
         status.show(`Translation ${source} → ${target} isn't available on this device.`);
         return;
       }
+      // Teardown or a re-activate may have run while the model loaded; if this
+      // run is no longer the active one, release the port and bail (avoids
+      // orphaning a live TranslatorPort + IntersectionObserver).
+      if (view !== active) {
+        result.port.destroy();
+        return;
+      }
       status.hide();
       port = result.port;
       translation = translatePane(active.left, port, { visibility: makeVisibility(active.left) });
@@ -94,6 +101,7 @@ function makeVisibility(pane: HTMLElement): Visibility {
         callback?.();
       }
     },
+    // root is the scrollable left pane; 200px margin prefetches just-offscreen sentences.
     { root: pane, rootMargin: "200px" },
   );
   return {
@@ -112,6 +120,7 @@ type Banner = { show(message: string): void; hide(): void; remove(): void };
 
 function mountBanner(root: HTMLElement): Banner {
   const host = document.createElement("div");
+  // #ls-root is position:fixed inset:0, so absolute positions the banner inside the overlay.
   host.style.cssText = "position:absolute;top:8px;left:8px;z-index:2147483647;";
   const shadow = host.attachShadow({ mode: "open" });
   shadow.innerHTML = `
