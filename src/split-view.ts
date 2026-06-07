@@ -1,4 +1,4 @@
-import { stripIds } from "./dom";
+import { makeInert, stripIds } from "./dom";
 
 const ROOT_ID = "ls-root";
 const STYLE_ID = "ls-layout-style";
@@ -43,12 +43,15 @@ export function buildSplitView(doc: Document): SplitView {
   const right = doc.createElement("div");
   right.className = "ls-pane ls-right";
 
+  const INERT_TAGS = new Set(["script", "noscript"]);
   const originalChildren = Array.from(doc.body.children).filter(
-    (child) => child.id !== ROOT_ID,
+    (child) =>
+      child.id !== ROOT_ID &&
+      !INERT_TAGS.has(child.tagName.toLowerCase()),
   );
   for (const child of originalChildren) {
-    right.appendChild(stripIds(child.cloneNode(true) as HTMLElement));
-    left.appendChild(stripIds(child.cloneNode(true) as HTMLElement));
+    right.appendChild(makeInert(stripIds(child.cloneNode(true) as HTMLElement)));
+    left.appendChild(makeInert(stripIds(child.cloneNode(true) as HTMLElement)));
   }
 
   root.append(left, right);

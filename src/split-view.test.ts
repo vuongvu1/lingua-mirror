@@ -54,4 +54,11 @@ describe("buildSplitView", () => {
     expect(view.left).toBe(document.querySelector(".ls-left"));
     expect(view.right).toBe(document.querySelector(".ls-right"));
   });
+
+  it("makes the cloned panes inert (no scripts)", () => {
+    document.body.innerHTML = `<p id="a">Hello</p><script>window.x=1</script>`;
+    buildSplitView(document);
+    const left = document.querySelector(".ls-left")!;
+    expect(left.querySelector("script")).toBeNull();
+  });
 });
