@@ -56,4 +56,29 @@ describe("pairPanes", () => {
     pairPanes(left, right, "en");
     expect(ids(right)).toEqual(before);
   });
+
+  it("wraps text in non-whitelisted containers like <div>", () => {
+    const { left, right } = panes(`<div>Hallo Welt. Wie geht es?</div>`);
+    pairPanes(left, right, "de");
+    const spans = right.querySelectorAll("div > span[data-pair-id]");
+    expect(spans.length).toBe(2);
+    expect(ids(left)).toEqual(ids(right));
+  });
+
+  it("treats a marked-up <div> as a single block-level pair", () => {
+    const { left, right } = panes(`<div>Lies <a href="#">mehr</a>.</div>`);
+    pairPanes(left, right, "de");
+    const div = right.querySelector("div")!;
+    expect(div.getAttribute("data-pair-id")).toBe("lm-0");
+    expect(div.querySelector("a")).not.toBeNull(); // markup preserved
+    expect(right.querySelectorAll("[data-pair-id]").length).toBe(1);
+  });
+
+  it("wraps the inner block, not the wrapper, for nested blocks (no overlap)", () => {
+    const { left, right } = panes(`<section><p>Inside.</p></section>`);
+    pairPanes(left, right, "en");
+    expect(right.querySelector("section")!.hasAttribute("data-pair-id")).toBe(false);
+    expect(right.querySelector("p > span[data-pair-id]")).not.toBeNull();
+    expect(ids(right)).toEqual(["lm-0"]);
+  });
 });

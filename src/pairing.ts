@@ -1,18 +1,47 @@
 import { segmentSentences } from "./segment";
 
-const BLOCK_TAGS = [
-  "P", "LI", "H1", "H2", "H3", "H4", "H5", "H6",
-  "BLOCKQUOTE", "FIGCAPTION", "DT", "DD", "TD", "TH", "CAPTION", "SUMMARY",
-];
-const NESTED_BLOCK_SELECTOR = BLOCK_TAGS.map((t) => t.toLowerCase()).join(",");
+// Inline-level tags stay PART of their containing block, never their own unit.
+const INLINE_TAGS = new Set([
+  "A", "ABBR", "B", "BDI", "BDO", "BR", "CITE", "CODE", "DATA", "DFN", "EM",
+  "I", "KBD", "MARK", "Q", "RP", "RT", "RUBY", "S", "SAMP", "SMALL", "SPAN",
+  "STRONG", "SUB", "SUP", "TIME", "U", "VAR", "WBR", "IMG", "PICTURE",
+  "BUTTON", "LABEL", "SELECT", "INPUT", "TEXTAREA", "OUTPUT",
+]);
+// Non-content tags we never treat as text blocks or descend into.
+const SKIP_TAGS = new Set([
+  "SCRIPT", "STYLE", "NOSCRIPT", "TEMPLATE", "SVG", "MATH", "IFRAME",
+  "CANVAS", "VIDEO", "AUDIO", "OBJECT", "EMBED", "HEAD", "META", "LINK", "TITLE",
+]);
+const SKIP_SELECTOR = [...SKIP_TAGS].map((t) => t.toLowerCase()).join(",");
 
-/** Leaf block-level elements that carry non-empty text and aren't already paired. */
+/** A "block" is anything that is neither inline nor a skipped/non-content tag. */
+function isBlock(el: Element): boolean {
+  return !INLINE_TAGS.has(el.tagName) && !SKIP_TAGS.has(el.tagName);
+}
+
+/** True if `el` has a block-level descendant (so `el` is not a leaf block). */
+function containsBlock(el: Element): boolean {
+  for (const child of el.children) {
+    if (SKIP_TAGS.has(child.tagName)) continue;
+    if (isBlock(child) || containsBlock(child)) return true;
+  }
+  return false;
+}
+
+/**
+ * Leaf block-level elements that carry non-empty text and aren't already paired.
+ * Block membership is decided by an inline/skip blacklist, not a tag whitelist, so
+ * containers like <div>/<section>/<figure> are covered — only their inline content
+ * (and nested blocks) is excluded. This is the lowest block wrapping each text run,
+ * so units never overlap.
+ */
 function collectTextBlocks(root: HTMLElement): HTMLElement[] {
   const blocks: HTMLElement[] = [];
   for (const el of root.querySelectorAll<HTMLElement>("*")) {
-    if (!BLOCK_TAGS.includes(el.tagName)) continue;
-    if (el.querySelector(NESTED_BLOCK_SELECTOR)) continue; // not a leaf block
+    if (!isBlock(el)) continue; // inline or non-content tag
+    if (el.closest(SKIP_SELECTOR)) continue; // inside a skipped subtree (e.g. <svg>)
     if (!el.textContent || !el.textContent.trim()) continue;
+    if (containsBlock(el)) continue; // not a leaf block
     if (el.hasAttribute("data-pair-id") || el.querySelector("[data-pair-id]")) continue;
     blocks.push(el);
   }
