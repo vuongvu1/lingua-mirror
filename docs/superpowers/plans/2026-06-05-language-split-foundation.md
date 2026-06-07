@@ -841,3 +841,46 @@ git commit -m "docs: record split-view validation notes"
 - Toggling (via popup button and keyboard shortcut) splits and collapses the page on at least two real sites.
 - Language selections persist across popup opens.
 - Ready for Plan 2 (translation): `src/split-view.ts` exposes `left`/`right` panes that Plan 2 will segment, translate, and pair.
+
+---
+
+## Validation notes
+
+**Date:** 2026-06-07. **Method:** production build (`pnpm build` → `.output/chrome-mv3`)
+loaded unpacked into Chromium (new-headless persistent context, the only way an MV3
+extension loads) and driven on real pages. The toggle was exercised through the real
+`TOGGLE_SPLIT` message contract (background → `chrome.tabs.sendMessage`), plus the
+popup and keyboard-command surfaces directly.
+
+**Sites:** `en.wikipedia.org/wiki/Bicycle` and `developer.mozilla.org/en-US/docs/Web/HTML`.
+
+**Passing:**
+- Both sites split into two side-by-side `.ls-pane` columns inside `#ls-root`, with
+  `html[data-ls-active="true"]`. Every original body child is cloned into each pane
+  (Wikipedia 11, MDN 5) and the two panes mirror identically.
+- Clone ids are stripped at build time; originals are untouched.
+- Shadow-DOM control bar shows `⟳ Re-sync` / `✕ Close`. Re-sync re-captures; a second
+  toggle and the Close button both fully tear down (`#ls-root` removed, `data-ls-active`
+  cleared).
+- Popup: pickers populated (left 10 langs; right 11 = `auto` + 10), defaults `en`/`auto`,
+  button text "Split this page"; clicking it sends `{type: TOGGLE_SPLIT}`. Settings
+  round-trip through `chrome.storage` (set `de`/`fr` → persisted → restored on reopen).
+- Keyboard command is registered as `⇧⌘L` (`chrome.commands.getAll()`).
+
+**Findings / risks (non-blocking for Plan 1):**
+- **SPA scripts mutate the clones.** On MDN (React), the left pane gained 8 `id`s
+  *after* the snapshot (Wikipedia stayed at 0) — the site's own JS keeps running and
+  re-renders into the cloned light-DOM nodes, re-introducing ids and re-running behavior.
+  Clone-in-place is a live snapshot, not a frozen one. **Plan 3 must account for this:**
+  injected pair-ID spans live in these same nodes and a running SPA could overwrite them.
+  Consider neutralizing scripts in the clone or re-stripping via a `MutationObserver`.
+- **Full-width layouts don't reflow into a half-width pane.** MDN's article grid is sized
+  for the full viewport, so at ~50% width the main heading collapsed into a one-/two-char
+  column. Content stays recognizable (Plan 1's bar); Wikipedia reflowed cleanly. A future
+  refinement could scale/zoom each pane or force a narrower responsive breakpoint.
+
+**Harness limitation (not an extension defect):** synthetic page keystrokes don't reach
+Chrome's command accelerator, so the `⇧⌘L` shortcut couldn't be fired end-to-end headlessly.
+The binding is correctly declared/registered and the listener path it triggers is the same
+`TOGGLE_SPLIT` message verified above; the shortcut still needs a one-time manual press in
+a real browser to confirm the OS-level binding.
