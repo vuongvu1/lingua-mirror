@@ -23,6 +23,7 @@ function wrapSentences(block: HTMLElement, sentences: string[], pairIds: string[
   const doc = block.ownerDocument;
   const nodes: Node[] = [];
   sentences.forEach((sentence, i) => {
+    // Single space between spans; original inter-sentence whitespace is not preserved.
     if (i > 0) nodes.push(doc.createTextNode(" "));
     const span = doc.createElement("span");
     span.setAttribute("data-pair-id", pairIds[i]!);
@@ -46,6 +47,7 @@ export function pairPanes(left: HTMLElement, right: HTMLElement, sourceLocale: s
   for (let i = 0; i < count; i++) {
     const lb = leftBlocks[i]!;
     const rb = rightBlocks[i]!;
+    // Panes are structurally identical clones; rb is the canonical reference for both.
     const markedUp = rb.children.length > 0;
 
     if (markedUp) {
