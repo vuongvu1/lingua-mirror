@@ -60,5 +60,7 @@ describe("buildSplitView", () => {
     buildSplitView(document);
     const left = document.querySelector(".ls-left")!;
     expect(left.querySelector("script")).toBeNull();
+    const right = document.querySelector(".ls-right")!;
+    expect(right.querySelector("script")).toBeNull();
   });
 });

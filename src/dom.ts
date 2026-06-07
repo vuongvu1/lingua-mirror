@@ -8,6 +8,13 @@ export function stripIds<T extends Element>(el: T): T {
   return el;
 }
 
+/**
+ * Strip executable content from a cloned subtree: removes <script>/<noscript>
+ * DESCENDANTS, inline on* handler attributes, and autoplay on media.
+ * Note: only descendants are scanned, not `el` itself — callers must skip a
+ * top-level inert element before cloning (buildSplitView filters INERT_TAGS).
+ * Returns the same element.
+ */
 export function makeInert<T extends Element>(el: T): T {
   for (const node of el.querySelectorAll("script, noscript")) {
     node.remove();

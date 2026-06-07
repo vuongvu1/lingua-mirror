@@ -2,6 +2,7 @@ import { makeInert, stripIds } from "./dom";
 
 const ROOT_ID = "ls-root";
 const STYLE_ID = "ls-layout-style";
+const INERT_TAGS = new Set(["script", "noscript"]);
 
 const LAYOUT_CSS = `
 #${ROOT_ID}{position:fixed;inset:0;z-index:2147483646;display:flex;background:#fff;}
@@ -43,7 +44,6 @@ export function buildSplitView(doc: Document): SplitView {
   const right = doc.createElement("div");
   right.className = "ls-pane ls-right";
 
-  const INERT_TAGS = new Set(["script", "noscript"]);
   const originalChildren = Array.from(doc.body.children).filter(
     (child) =>
       child.id !== ROOT_ID &&
