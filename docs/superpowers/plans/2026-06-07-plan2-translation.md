@@ -1057,4 +1057,30 @@ git commit -m "docs: record Plan 2 validation notes"
 - Every paired sentence carries a matching `data-pair-id` in both panes (block-level fallback for marked-up blocks).
 - Availability/download and unsupported-pair states show a clear banner instead of failing silently.
 - Ready for Plan 3 (synchronized hover-highlight + synced scroll) on top of the `data-pair-id` spans.
+
+---
+
+## Validation notes
+
+**Date:** 2026-06-07. **Automated integration check:** the production build was loaded
+unpacked into Chromium (Playwright persistent context) and driven on
+`de.wikipedia.org/wiki/Fahrrad` (`<html lang="de">`), default settings (left=English,
+right="auto") so the pair is de→en.
+
+**Verified automatically:**
+- Inert split builds; 2 panes.
+- Source language resolved from `<html lang="de">` (no prompt).
+- **Pairing produced 676 `data-pair-id` spans in *both* panes (matched count)** — the
+  structure Plan 3 consumes.
+- The `Translator` API is present; availability resolved to "downloading", so the
+  `onDownloading` hook fired and the **"Preparing en…" status banner** showed (in the
+  shadow-DOM UI). Panes remained a faithful German mirror while preparing — graceful.
+- `pnpm compile` clean, `pnpm test` 38/38 green, `pnpm build` clean.
+
+**Still to confirm manually (needs Chrome/Edge 138+ with the en model downloaded; the
+on-device model did not finish downloading within the short headless window):**
+- Left pane fills with **English**, visible-first then lazily on scroll (Task 8 §2–3).
+- Re-sync re-translates; Close/second toggle collapses cleanly.
+- The "set the page's language" banner when `<html lang>` is absent and right="auto";
+  same-language pick → panes mirror with no translation; unsupported-pair banner.
 ```
