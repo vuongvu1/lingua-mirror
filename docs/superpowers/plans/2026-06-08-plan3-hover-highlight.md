@@ -621,4 +621,35 @@ git commit -m "docs: record Plan 3 validation notes"
 - Scrolling one pane keeps the other proportionally aligned, with no ricochet.
 - Close / second toggle / re-sync wire and unwire highlight + scroll without leaking listeners.
 - Highlight works on untranslated and same-language panes (it depends only on the `data-pair-id` structure).
+
+---
+
+## Validation notes
+
+**Date:** 2026-06-08. Implemented via subagent-driven TDD (one implementer + a combined
+spec/quality reviewer per task); all three code tasks reviewed **spec ✅ + quality
+Approved**.
+
+**Verified automatically:**
+- `pnpm compile` clean; `pnpm test` **53/53 green** (10 files), incl. new `highlight`
+  (7) and `synced-scroll` (5) suites.
+- `pnpm build` clean — `content.js` (23 kB) bundles both new modules.
+- Hover engine unit-tested in happy-dom with real dispatched events: highlights the
+  hovered sentence **and its twin** (both panes share the id, so the same query hits
+  both), moves on re-hover, clears on gap / `mouseleave` / `destroy()`, and handles the
+  block-level (marked-up) pair-id fallback.
+- Synced-scroll math unit-tested across height ratios (target shorter / equal /
+  zero-scrollable); `linkScroll` re-entrancy guard tested for one-shot mirror + no
+  ricochet + guard release + `destroy()`.
+
+**Still to confirm manually (needs Chrome/Edge 138+; not reproducible headless — no
+on-device model + no unpacked-extension harness in-repo):**
+- Real-browser hover over the *cloned site DOM* lights both panes, both directions, and
+  the `!important` highlight wins over arbitrary site CSS (Task 4 §2).
+- Proportional synced scroll feels right with real layout geometry + no jitter (§3).
+- Edge cases: re-sync re-wires; close/second toggle leaves no lingering scroll/hover
+  listeners; no-`<html lang>` page gets scroll sync but no highlight (no error);
+  same-language pick still hover-highlights (§4).
+- Highlight legibility: the v1 outline reuses the fill color (`#fff3a3`) as a soft halo;
+  swap to a contrasting stroke (e.g. `#e6c800`) if it reads weak on real pages.
 ```
