@@ -5,6 +5,10 @@ import { resolveSourceLanguage } from "../src/source-language";
 import { pairPanes } from "../src/pairing";
 import { createTranslator, type TranslatorApi, type TranslatorPort } from "../src/translator";
 import { translatePane, type Controller, type Visibility } from "../src/translate-pane";
+import { linkHover, HIGHLIGHT_CSS, type HoverController } from "../src/highlight";
+import { linkScroll, type ScrollController } from "../src/synced-scroll";
+
+const HIGHLIGHT_STYLE_ID = "lm-highlight-style";
 
 export default defineContentScript({
   matches: ["<all_urls>"],
@@ -15,8 +19,14 @@ export default defineContentScript({
     let banner: Banner | null = null;
     let translation: Controller | null = null;
     let port: TranslatorPort | null = null;
+    let highlight: HoverController | null = null;
+    let scrollSync: ScrollController | null = null;
 
     const teardown = (): void => {
+      highlight?.destroy();
+      highlight = null;
+      scrollSync?.destroy();
+      scrollSync = null;
       translation?.stop();
       translation = null;
       port?.destroy();
@@ -34,6 +44,8 @@ export default defineContentScript({
       view = active;
       controls = mountControls(active.root, { onClose: teardown, onResync: resync });
       banner = mountBanner(active.root);
+      // Scroll sync needs no pair-ids, so wire it even when the page has no <html lang>.
+      scrollSync = linkScroll(active.left, active.right);
       await runTranslation(active, banner);
     };
 
@@ -45,6 +57,9 @@ export default defineContentScript({
         return;
       }
       pairPanes(active.left, active.right, source);
+      // Highlight works on the pair-id structure regardless of translation state.
+      injectHighlightStyle(document);
+      highlight = linkHover(active.root);
 
       const target = settings.leftLang;
       if (source === target) return; // same language: panes already mirror
@@ -88,6 +103,15 @@ export default defineContentScript({
     });
   },
 });
+
+/** Inject the highlight CSS rule once; left in <head> on destroy (inert without the data-lm-highlight attribute). */
+function injectHighlightStyle(doc: Document): void {
+  if (doc.getElementById(HIGHLIGHT_STYLE_ID)) return;
+  const style = doc.createElement("style");
+  style.id = HIGHLIGHT_STYLE_ID;
+  style.textContent = HIGHLIGHT_CSS;
+  doc.head.appendChild(style);
+}
 
 function makeVisibility(pane: HTMLElement): Visibility {
   const callbacks = new Map<Element, () => void>();

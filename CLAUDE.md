@@ -82,5 +82,5 @@ NEVER:
 
 Built in incremental, independently-shippable milestones, each spec → plan → implement:
 - **Plan 1 — Foundation & Split View: DONE.** Scaffold, settings popup, toggle, clone-in-place mirrored split (both panes identical, no translation yet).
-- **Plan 2 — Translation** (next): `Intl.Segmenter` + on-device `Translator` API on the left pane; source from `<html lang>`.
-- **Plan 3 — Synchronized hover-highlight**: pair-ID spans, bidirectional highlight, synced scroll.
+- **Plan 2 — Translation: DONE.** `Intl.Segmenter` sentence segmentation + on-device `Translator` API translating the left pane visible-first; source from `<html lang>`; both panes carry matching `data-pair-id` spans; status banner for unavailable/downloading/no-lang states. (Manual on-device e2e of the model-download path still pending — see plan validation notes.)
+- **Plan 3 — Synchronized hover-highlight** (next): pair-ID spans, bidirectional highlight, synced scroll.
