@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HIGHLIGHT_CSS, linkHover } from "./highlight";
+import { highlightCss, linkHover } from "./highlight";
 
 /** A root containing two panes whose sentences share the same pair-ids. */
 function panes(): HTMLElement {
@@ -78,7 +78,10 @@ describe("linkHover", () => {
     expect(highlighted(root)).toEqual([]); // listener gone, nothing re-highlights
   });
 
-  it("exposes a CSS rule targeting the highlight attribute", () => {
-    expect(HIGHLIGHT_CSS).toContain("data-lm-highlight");
+  it("builds a CSS rule targeting the highlight attribute with the given color", () => {
+    const css = highlightCss("#ffb3b3");
+    expect(css).toContain("data-lm-highlight");
+    expect(css).toContain("#ffb3b3");
+    expect(css).not.toContain("#fff3a3");
   });
 });

@@ -18,14 +18,24 @@ describe("settings", () => {
     await expect(getSettings()).resolves.toEqual({
       leftLang: "de",
       rightLang: "auto",
+      highlightColor: "#fff3a3",
+    });
+  });
+
+  it("defaults the highlight color for settings stored before it existed", async () => {
+    vi.mocked(chrome.storage.local.get).mockResolvedValue({
+      settings: { leftLang: "de", rightLang: "en" },
+    });
+    await expect(getSettings()).resolves.toMatchObject({
+      highlightColor: "#fff3a3",
     });
   });
 
   it("persists settings under the 'settings' key", async () => {
     vi.mocked(chrome.storage.local.set).mockResolvedValue(undefined);
-    await saveSettings({ leftLang: "en", rightLang: "auto" });
+    await saveSettings({ leftLang: "en", rightLang: "auto", highlightColor: "#ffb3b3" });
     expect(chrome.storage.local.set).toHaveBeenCalledWith({
-      settings: { leftLang: "en", rightLang: "auto" },
+      settings: { leftLang: "en", rightLang: "auto", highlightColor: "#ffb3b3" },
     });
   });
 });

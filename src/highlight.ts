@@ -1,7 +1,9 @@
 const HIGHLIGHT_ATTR = "data-lm-highlight";
 
 /** CSS rule the content script injects so `[data-lm-highlight]` paints over site styles. */
-export const HIGHLIGHT_CSS = `[${HIGHLIGHT_ATTR}]{background:#fff3a3 !important;border-radius:3px;box-shadow:0 0 0 2px #fff3a3;}`;
+export function highlightCss(color: string): string {
+  return `[${HIGHLIGHT_ATTR}]{background:${color} !important;border-radius:3px;box-shadow:0 0 0 2px ${color};}`;
+}
 
 export type HoverController = { destroy(): void };
 

@@ -5,7 +5,7 @@ import { resolveSourceLanguage } from "../src/source-language";
 import { pairPanes } from "../src/pairing";
 import { createTranslator, type TranslatorApi, type TranslatorPort } from "../src/translator";
 import { translatePane, type Controller, type Visibility } from "../src/translate-pane";
-import { linkHover, HIGHLIGHT_CSS, type HoverController } from "../src/highlight";
+import { linkHover, highlightCss, type HoverController } from "../src/highlight";
 import { linkScroll, type ScrollController } from "../src/synced-scroll";
 
 const HIGHLIGHT_STYLE_ID = "lm-highlight-style";
@@ -58,7 +58,7 @@ export default defineContentScript({
       }
       pairPanes(active.left, active.right, source);
       // Highlight works on the pair-id structure regardless of translation state.
-      injectHighlightStyle(document);
+      injectHighlightStyle(document, settings.highlightColor);
       highlight = linkHover(active.root);
 
       const target = settings.leftLang;
@@ -104,13 +104,19 @@ export default defineContentScript({
   },
 });
 
-/** Inject the highlight CSS rule once; left in <head> on destroy (inert without the data-lm-highlight attribute). */
-function injectHighlightStyle(doc: Document): void {
-  if (doc.getElementById(HIGHLIGHT_STYLE_ID)) return;
-  const style = doc.createElement("style");
-  style.id = HIGHLIGHT_STYLE_ID;
-  style.textContent = HIGHLIGHT_CSS;
-  doc.head.appendChild(style);
+/**
+ * Inject (or refresh) the highlight CSS rule; left in <head> on destroy
+ * (inert without the data-lm-highlight attribute). Refreshing the text on
+ * every activation picks up a changed highlight color on re-split.
+ */
+function injectHighlightStyle(doc: Document, color: string): void {
+  let style = doc.getElementById(HIGHLIGHT_STYLE_ID);
+  if (!style) {
+    style = doc.createElement("style");
+    style.id = HIGHLIGHT_STYLE_ID;
+    doc.head.appendChild(style);
+  }
+  style.textContent = highlightCss(color);
 }
 
 function makeVisibility(pane: HTMLElement): Visibility {

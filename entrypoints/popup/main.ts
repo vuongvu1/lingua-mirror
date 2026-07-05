@@ -6,6 +6,7 @@ import { getSettings, saveSettings } from "../../src/settings";
 async function init(): Promise<void> {
   const leftSel = document.getElementById("left") as HTMLSelectElement;
   const rightSel = document.getElementById("right") as HTMLSelectElement;
+  const colorInput = document.getElementById("highlight") as HTMLInputElement;
   const toggleBtn = document.getElementById("toggle") as HTMLButtonElement;
 
   for (const lang of LANGUAGES) {
@@ -19,12 +20,18 @@ async function init(): Promise<void> {
   const settings = await getSettings();
   leftSel.value = settings.leftLang;
   rightSel.value = settings.rightLang;
+  colorInput.value = settings.highlightColor;
 
   const persist = (): void => {
-    void saveSettings({ leftLang: leftSel.value, rightLang: rightSel.value });
+    void saveSettings({
+      leftLang: leftSel.value,
+      rightLang: rightSel.value,
+      highlightColor: colorInput.value,
+    });
   };
   leftSel.addEventListener("change", persist);
   rightSel.addEventListener("change", persist);
+  colorInput.addEventListener("change", persist);
 
   toggleBtn.addEventListener("click", async () => {
     await sendToActiveTab({ type: TOGGLE_SPLIT });

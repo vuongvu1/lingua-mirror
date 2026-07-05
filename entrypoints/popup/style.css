@@ -34,6 +34,15 @@ select {
   border: 1px solid #c8c8c8;
   border-radius: 8px;
 }
+.color-field input {
+  width: 48px;
+  height: 28px;
+  padding: 2px;
+  border: 1px solid #c8c8c8;
+  border-radius: 8px;
+  background: none;
+  cursor: pointer;
+}
 .toggle {
   padding: 11px;
   font-size: 13.5px;

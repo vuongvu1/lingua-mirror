@@ -3,11 +3,14 @@ export type Settings = {
   leftLang: string;
   /** BCP-47 code for the original (right) pane, or "auto" to keep the site's language. */
   rightLang: string;
+  /** Hex color of the hover-highlight, e.g. "#fff3a3". */
+  highlightColor: string;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
   leftLang: "en",
   rightLang: "auto",
+  highlightColor: "#fff3a3",
 };
 
 export async function getSettings(): Promise<Settings> {
