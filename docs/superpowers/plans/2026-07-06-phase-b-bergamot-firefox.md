@@ -689,19 +689,55 @@ Task 1 recon + Task 8 manual e2e). **Adapt the exact import path, constructor
 options, registry URL/shape, and translate call to the Task 1 recon findings**;
 the structure below is the contract that must hold.
 
+**Recon-driven requirements (from `## Recon findings (Task 1)` — read it):**
+- Registry: `https://bergamot.s3.amazonaws.com/models/index.json`; keys are
+  4-char pairs (`"deen"`); English pivot is built into `BatchTranslator`
+  (`pivotLanguage: 'en'` default), so a pair is usable if it exists directly
+  OR both `${from}en` and `en${to}` exist.
+- `workerUrl` option is DEAD — `TranslatorBacking.loadWorker()` hardcodes
+  `new Worker(new URL('./worker/translator-worker.js', import.meta.url))`,
+  which breaks under Vite bundling. Subclass `TranslatorBacking`, override
+  `loadWorker()` to mirror the original implementation (read it in
+  `node_modules/.../translator.js`) but construct the Worker from
+  `chrome.runtime.getURL("/worker/translator-worker.js")`.
+- `TranslatorBacking`'s constructor fetches the registry immediately — keep
+  construction lazy (first `create()`), never at module top level.
+- Verify whether `new BatchTranslator(options, backing)` accepts a backing
+  instance (check the constructor at translator.js:461+). If not, follow
+  whatever injection the source supports (e.g. subclassing BatchTranslator);
+  note the deviation in the commit body.
+
 - [ ] **Step 1: Implement** `src/bergamot/engine.ts`
 
 ```ts
 // Firefox-only chunk: imported dynamically from the background entrypoint.
-// The exact BatchTranslator API below follows the Task 1 recon findings.
-import { BatchTranslator } from "@browsermt/bergamot-translator/translator.js";
+// API per the Task 1 recon findings in the plan doc.
+import {
+  BatchTranslator,
+  TranslatorBacking,
+} from "@browsermt/bergamot-translator/translator.js";
 import type { TranslatorAvailability, TranslatorPort } from "../translator";
 import type { Pair } from "./protocol";
 import type { EngineFactory } from "./server";
 
-/** Default Mozilla model registry (verify against Task 1 recon). */
-const REGISTRY_URL =
-  "https://storage.googleapis.com/bergamot-models-sandbox/0.3.3/registry.json";
+const REGISTRY_URL = "https://bergamot.s3.amazonaws.com/models/index.json";
+
+/**
+ * The stock backing spawns its worker via import.meta.url, which Vite
+ * bundling breaks. Same implementation, but the Worker URL comes from the
+ * extension package (assets shipped by the wxt config, Task 6).
+ */
+class ExtensionBacking extends TranslatorBacking {
+  // Mirror the original loadWorker() body (translator.js:118) — only the
+  // Worker construction changes. Keep the same return shape.
+  override loadWorker(): ReturnType<TranslatorBacking["loadWorker"]> {
+    return super.loadWorkerFromUrl(
+      chrome.runtime.getURL("/worker/translator-worker.js"),
+    );
+    // ^ If no such seam exists in the source, inline the original body here
+    //   with the swapped URL instead — read translator.js and replicate.
+  }
+}
 
 let registryPromise: Promise<Record<string, unknown>> | null = null;
 function loadRegistry(): Promise<Record<string, unknown>> {
@@ -715,14 +751,21 @@ function loadRegistry(): Promise<Record<string, unknown>> {
 // so a re-split doesn't re-pay wasm startup. Add idle teardown if memory bites.
 let translator: BatchTranslator | null = null;
 function sharedTranslator(): BatchTranslator {
-  translator ??= new BatchTranslator({ workers: 1 });
+  translator ??= new BatchTranslator(
+    { workers: 1, registryUrl: REGISTRY_URL },
+    new ExtensionBacking({ registryUrl: REGISTRY_URL }),
+  );
   return translator;
 }
 
-/** Registry keys are `${from}${to}`, e.g. "deen" (verify in recon). */
+/** Direct pair, or pivotable through English (BatchTranslator pivots itself). */
 async function pairSupported(pair: Pair): Promise<boolean> {
   const registry = await loadRegistry();
-  return `${pair.sourceLanguage}${pair.targetLanguage}` in registry;
+  const { sourceLanguage: from, targetLanguage: to } = pair;
+  return (
+    `${from}${to}` in registry ||
+    (`${from}en` in registry && `en${to}` in registry)
+  );
 }
 
 export function bergamotEngineFactory(): EngineFactory {
@@ -762,12 +805,25 @@ export function bergamotEngineFactory(): EngineFactory {
 
 - [ ] **Step 2: Types**
 
-If the package ships no TypeScript types, add `src/bergamot/bergamot-translator.d.ts`:
+The package ships no `.d.ts` (recon). Add `src/bergamot/bergamot-translator.d.ts`,
+declaring ONLY what we call — align member names with the real source:
 
 ```ts
 declare module "@browsermt/bergamot-translator/translator.js" {
+  export type BergamotOptions = {
+    workers?: number;
+    batchSize?: number;
+    cacheSize?: number;
+    registryUrl?: string;
+    downloadTimeout?: number;
+    pivotLanguage?: string | null;
+  };
+  export class TranslatorBacking {
+    constructor(options?: BergamotOptions);
+    loadWorker(): unknown; // narrow to the real return shape while implementing
+  }
   export class BatchTranslator {
-    constructor(options?: { workers?: number });
+    constructor(options?: BergamotOptions, backing?: TranslatorBacking);
     translate(request: {
       from: string;
       to: string;
@@ -778,8 +834,6 @@ declare module "@browsermt/bergamot-translator/translator.js" {
   }
 }
 ```
-
-(Adjust to recon findings; keep the declaration minimal — only what we call.)
 
 - [ ] **Step 3: Type-check + commit**
 
@@ -828,14 +882,56 @@ import { handleConnection } from "../src/bergamot/server";
 tsc disagrees on listener signatures, adapt `PortLike` in protocol.ts, not the
 call site.)
 
-- [ ] **Step 2: Manifest — model registry host permission (firefox only)**
+- [ ] **Step 2: Manifest — host permission + wasm CSP (firefox only)**
 
 In `wxt.config.ts`, inside the existing `...(browser === "firefox" && { ... })`
-spread, add (adjust origin to the recon registry URL):
+spread, add:
 
 ```ts
-      host_permissions: ["https://storage.googleapis.com/*"],
+      host_permissions: ["https://bergamot.s3.amazonaws.com/*"],
+      content_security_policy: {
+        extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';",
+      },
 ```
+
+(S3 origin per recon — registry AND model files come from there. The CSP
+grants wasm compilation in extension pages; required for the Emscripten glue.)
+
+- [ ] **Step 2b: Ship the worker assets (firefox output only)**
+
+The three files `node_modules/@browsermt/bergamot-translator/worker/`
+`{translator-worker.js, bergamot-translator-worker.js, bergamot-translator-worker.wasm}`
+(~5.3MB) must land at `/worker/` in the FIREFOX build output and be ABSENT
+from the Chrome output (purity check).
+
+Preferred: WXT's public-assets hook in `wxt.config.ts` (verify the exact hook
+signature against the installed WXT 0.20 docs/types — `wxt/dist` types list
+available hooks):
+
+```ts
+  hooks: {
+    "build:publicAssets": (wxt, assets) => {
+      if (wxt.config.browser !== "firefox") return;
+      const base = "node_modules/@browsermt/bergamot-translator/worker";
+      for (const file of [
+        "translator-worker.js",
+        "bergamot-translator-worker.js",
+        "bergamot-translator-worker.wasm",
+      ]) {
+        assets.push({
+          absoluteSrc: resolve(base, file),
+          relativeDest: `worker/${file}`,
+        });
+      }
+    },
+  },
+```
+
+(`import { resolve } from "node:path"` at the top of wxt.config.ts.) If the
+hook's real shape differs, adapt; if WXT 0.20 has no usable hook, fall back to
+a small Vite plugin in the config's `vite:` option that copies the files in
+`writeBundle` when `wxt.config.browser === "firefox"`. Requirement is fixed,
+mechanism is free.
 
 - [ ] **Step 3: Build both targets + purity check**
 
