@@ -13,6 +13,10 @@ and the plans in `docs/superpowers/plans/` before changing behavior.
 - **WXT** (extension framework) + **Manifest V3** + **TypeScript** (strict, `noUncheckedIndexedAccess`).
 - **Vitest** + **happy-dom** for unit tests.
 - **Chrome/Edge, Chromium 138+** — required for the built-in on-device `Translator` API.
+- **Firefox 128+ (MV3)** — ports fully EXCEPT translation: Mozilla rejected the WICG
+  Translator API (standards-position negative), so the split/highlight works and
+  translation shows the "not available" banner. Build: `pnpm build:firefox`.
+  A Bergamot-wasm engine backend is the plotted fix (own spec, not yet built).
 - No backend, no runtime dependencies.
 
 ## Commands
