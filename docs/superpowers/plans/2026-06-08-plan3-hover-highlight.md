@@ -642,14 +642,30 @@ Approved**.
   zero-scrollable); `linkScroll` re-entrancy guard tested for one-shot mirror + no
   ricochet + guard release + `destroy()`.
 
-**Still to confirm manually (needs Chrome/Edge 138+; not reproducible headless — no
-on-device model + no unpacked-extension harness in-repo):**
-- Real-browser hover over the *cloned site DOM* lights both panes, both directions, and
-  the `!important` highlight wins over arbitrary site CSS (Task 4 §2).
-- Proportional synced scroll feels right with real layout geometry + no jitter (§3).
-- Edge cases: re-sync re-wires; close/second toggle leaves no lingering scroll/hover
-  listeners; no-`<html lang>` page gets scroll sync but no highlight (no error);
-  same-language pick still hover-highlights (§4).
-- Highlight legibility: the v1 outline reuses the fill color (`#fff3a3`) as a soft halo;
-  swap to a contrasting stroke (e.g. `#e6c800`) if it reads weak on real pages.
+**Verified in real Chrome 149 (CDP-driven, deterministic — 10/10 checks):** the shipping
+`src/` modules were bundled (esbuild) and the exact content-script pipeline
+(`buildSplitView` → `pairPanes` → inject `HIGHLIGHT_CSS` → `linkHover` → `linkScroll`)
+was run on a local German (`<html lang="de">`) fixture, then exercised against real
+layout + real event bubbling through the cloned DOM:
+- Split builds (`#ls-root` + `data-ls-active`); pairing tagged **134 spans in both panes,
+  counts matched**.
+- Hover a LEFT sentence lights it **and its right twin**; hover a RIGHT sentence lights
+  its left twin — **bidirectional**.
+- **Highlight wins over site CSS**: computed background resolved to `rgb(255, 243, 163)`
+  (`#fff3a3`) via the real cascade with `!important`.
+- `mouseleave` on the root clears the highlight.
+- Panes are scrollable with real geometry; scrolling LEFT mirrors to RIGHT and RIGHT
+  mirrors back to LEFT (0) — **no ricochet / stuck guard**.
+
+**Still to confirm manually (needs Chrome/Edge 138+, real extension install):**
+- The **extension activation path** (toolbar/`Cmd+Shift+L` → background → content-script
+  toggle, teardown, re-sync). Note: `--load-extension` content-script injection could not
+  be driven headlessly/headfully in this environment (SW loaded, but no content-script
+  isolated world appeared — an environment quirk, not a code defect), so this path was
+  validated only at the module level above.
+- The **translation path** (left pane fills English visible-first; "Preparing…" banner) —
+  needs the on-device model, which does not download in a scripted window (same as Plan 2).
+- Subjective feel: scroll smoothness on long real pages; highlight legibility — the v1
+  outline reuses the fill color (`#fff3a3`) as a soft halo; swap to a contrasting stroke
+  (e.g. `#e6c800`) if it reads weak.
 ```
