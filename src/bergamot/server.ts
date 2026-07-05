@@ -31,6 +31,7 @@ export function handleConnection(port: PortLike, engines: EngineFactory): void {
       case "init":
         void engines.create(request.pair).then(
           (created) => {
+            // ponytail: engine created after disconnect is never destroyed; matters only if destroy() stops being a no-op (see engine.ts note)
             engine = created;
             send({ type: "init:result", ok: true });
           },
