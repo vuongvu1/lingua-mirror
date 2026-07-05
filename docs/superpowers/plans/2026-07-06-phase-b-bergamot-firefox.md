@@ -953,3 +953,87 @@ git commit -m "feat: firefox content script falls back to bergamot engine"
 - Chrome bundle contains zero bergamot bytes (grep = 0) and its size is unchanged.
 - Firefox: real translation with model download UX; cancel and unsupported-pair paths behave.
 - CLAUDE.md reflects the engine map and the amended dependency rule.
+
+---
+
+## Recon findings (Task 1)
+
+Inspected `node_modules/@browsermt/bergamot-translator` v0.4.9 (source, not docs-only).
+
+### 1. Exports / import paths
+
+`package.json`: `"type": "module"`, `"main": "translator.js"`, **no `exports` field** — deep imports are unrestricted, so `import {BatchTranslator} from '@browsermt/bergamot-translator/translator.js'` works (and is what the README shows). `files`: `translator.js`, `main.js` (node CLI demo), `worker/translator-worker.js`, `worker/bergamot-translator-worker.js`, `worker/bergamot-translator-worker.wasm`.
+
+Named exports from `translator.js`: `BatchTranslator`, `LatencyOptimisedTranslator`, `TranslatorBacking`, `SupersededError`, `CancelledError`. No default export.
+
+### 2. Constructor options
+
+`new BatchTranslator(options?, backing?)` — `backing` defaults to `new TranslatorBacking(options)` (translator.js:474-476).
+
+| option | default | notes |
+|---|---|---|
+| `workers` | 1 | upper bound, lazily spawned (translator.js:490) |
+| `batchSize` | 8 | min 1 (translator.js:521) |
+| `cacheSize` | 0 (disabled) | per-worker translation cache; worker clamps `Math.max(cacheSize\|\|0, 0)` |
+| `downloadTimeout` | 60000 ms | 0 disables (translator.js:77) |
+| `registryUrl` | see §4 | (translator.js:75) |
+| `pivotLanguage` | `'en'` | set `null` to disable pivoting (translator.js:94) |
+| `useNativeIntGemm` | false | Firefox **Nightly**-only `WebAssembly.mozIntGemm`; auto-falls back to embedded gemm (translator-worker.js:201-217) |
+| `onerror` | `console.error` wrapper | async/unrecoverable worker errors |
+| `workerUrl` | — | **documented in README/JSDoc but NOT implemented** — `loadWorker()` hardcodes `new Worker(new URL('./worker/translator-worker.js', import.meta.url))` (translator.js:118) |
+
+Caveat: `TranslatorBacking`'s constructor **fetches the registry immediately** (`this.registry = this.loadModelRegistery()`, translator.js:83) — constructing a translator triggers network I/O; defer construction until first use.
+
+### 3. Translate call
+
+Confirmed, matches the documented guess plus extras:
+
+```js
+translate({from, to, text, html?: boolean, qualityScores?: boolean, priority?: number})
+  → Promise<{request: TranslationRequest, target: {text: string}}>
+```
+
+- Response echoes back `request` alongside `target.text` (translator.js:724-731; worker returns `[{target:{text}}]`, translator-worker.js:423-427).
+- `priority`: lower = translated first (BatchTranslator only).
+- Rejections: `CancelledError` (removed/aborted/deleted), `SupersededError` (LatencyOptimisedTranslator replaces a still-pending request), or worker errors re-thrown with call-site stack.
+- Upstream nit: in `loadTranslationModel` the abort handler references `reject` out of scope (translator.js:273) → aborting mid-model-download throws ReferenceError, not CancelledError. Also `if (!entries)` (translator.js:268) can never be true (filter returns `[]`), so a missing model surfaces as a TypeError on `entries[0].files`.
+
+### 4. Registry & pivoting
+
+Default constant: `https://bergamot.s3.amazonaws.com/models/index.json` (translator.js:75). The README claims a `storage.googleapis.com/bergamot-models-sandbox/0.3.3` default — **README is stale; code wins.**
+
+Registry JSON shape: an object keyed by concatenated 2-letter pair, e.g. `"deen"`, each value a files map. Parsed as `{from: key.substring(0,2), to: key.substring(2,4), files}` (translator.js:212-218) — 2-letter ISO codes only. `files` parts: `model`, `lex` (→ shortlist), `vocab` **or** `srcvocab`+`trgvocab`, optional `qualityModel`, optional `config`; each file entry is `{name (URL), size, expectedSha256Hash}`. Downloads use fetch subresource `integrity` from the sha256 (translator.js:365-375).
+
+Pair check: `findModels(from, to)` (translator.js:433-454) — direct model wins; otherwise **automatic pivot** `from→en` + `en→to` (both must exist), using the worker's `translateViaPivoting` (translator-worker.js:413-415); else throws `No model available to translate from '<from>' to '<to>'`. So yes: pivot through English is automatic and on by default.
+
+### 5. Worker / wasm loading (bundling risk assessment)
+
+Mechanism:
+1. Main thread: `new Worker(new URL('./worker/translator-worker.js', import.meta.url))` — **classic** worker, not `{type:'module'}` (translator.js:118).
+2. Worker: `importScripts('bergamot-translator-worker.js')` loads the Emscripten glue relative to the worker's own URL (translator-worker.js:266).
+3. Wasm: `fetch(new URL('./bergamot-translator-worker.wasm', self.location))` + `WebAssembly.instantiateStreaming` via a custom `instantiateWasm` hook (translator-worker.js:243-258) — the glue's own `locateFile` path is bypassed. No `.arrayBuffer()` fallback, so the wasm must be served with `Content-Type: application/wasm` (moz-extension:// URLs are fine in Firefox).
+
+Shipped assets: `worker/translator-worker.js` (17 KB wrapper), `worker/bergamot-translator-worker.js` (80 KB Emscripten glue), `worker/bergamot-translator-worker.wasm` (5.2 MB).
+
+**No SharedArrayBuffer / pthreads**: zero occurrences in the glue; model config pins `cpu-threads: 0`. No COOP/COEP/cross-origin-isolation requirement. Parallelism comes from multiple whole workers, each with its own model copy.
+
+Vite/WXT MV3 risks (all manageable, Firefox-only background):
+- **`import.meta.url`-relative worker path**: since `workerUrl` is dead (see §2), the three `worker/*` files must end up at `./worker/` relative to wherever the code containing `loadWorker` executes — either keep `translator.js` un-prebundled (`optimizeDeps.exclude`) and copy `worker/` into the output preserving layout, or subclass `TranslatorBacking`/patch to point at a known extension URL. This is the main integration hazard.
+- **Classic worker + `importScripts`**: the worker files must be shipped verbatim (static assets), NOT run through Vite's worker bundling (which would emit a module worker where `importScripts` throws). Also do not let the bundler rename `Module` (translator-worker.js:264-266 warns about this).
+- **Wasm CSP**: Firefox MV3 needs `"content_security_policy": {"extension_pages": "script-src 'self' 'wasm-unsafe-eval'; ..."}` in the manifest for `WebAssembly.instantiateStreaming`.
+- **Firefox MV3 background is a page** (event page, has `window` + `Worker`) — the node-compat shim at translator.js:19-42 is skipped. It would break in a Chrome MV3 service worker (`window` undefined → `import('node:worker_threads')`), but Chrome keeps zero bergamot bytes per plan. Bundler may warn on the `node:worker_threads` / `node:fs` dynamic imports (translator.js:25, translator-worker.js:20,45,62) — externalize or ignore; they're behind runtime guards.
+- **Network**: registry (bergamot.s3.amazonaws.com) + model file hosts need `host_permissions` (fetches use `credentials:'omit'`).
+
+### 6. Delete / teardown
+
+`BatchTranslator.delete()` (translator.js:529-535): rejects everything queued with `CancelledError`, then `worker.terminate()` on all workers. `LatencyOptimisedTranslator.delete()` (translator.js:783-797) likewise. Worker also exposes `freeTranslationModel({from,to})` (translator-worker.js:364-374) to free a single model's aligned memory without killing the worker (callable through the backing's exports proxy). Memory note: each worker holds its own copies of loaded models (tens of MB each) plus the 5.2 MB wasm; `delete()` is the only full reclaim.
+
+### 7. Types
+
+**No `.d.ts` files** anywhere in the package — JSDoc annotations only. We need a local `declare module '@browsermt/bergamot-translator/translator.js'` shim for tsc.
+
+### 8. License
+
+`MPL-2.0` (package.json:15) — file-level copyleft, compatible with bundling into an extension; no obligation on our code.
+
+**Verdict:** GO
