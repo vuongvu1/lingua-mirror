@@ -74,6 +74,17 @@ describe("bergamotApi", () => {
     await expect(inflight).rejects.toThrow();
   });
 
+  it("destroy() rejects in-flight translations", async () => {
+    const h = harness();
+    const api = bergamotApi(h.connect);
+    const portPromise = api.create(PAIR);
+    h.serverPort.postMessage({ type: "init:result", ok: true });
+    const translator = await portPromise;
+    const inflight = translator.translate("hängt");
+    translator.destroy();
+    await expect(inflight).rejects.toThrow("translator destroyed");
+  });
+
   it("destroy() disconnects the port", async () => {
     const h = harness();
     let disconnected = false;

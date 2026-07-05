@@ -46,6 +46,7 @@ export function bergamotApi(connect: () => PortLike): TranslatorApi {
           return reply;
         },
         destroy() {
+          pending.rejectAll(new Error("translator destroyed"));
           port.disconnect();
         },
       };
