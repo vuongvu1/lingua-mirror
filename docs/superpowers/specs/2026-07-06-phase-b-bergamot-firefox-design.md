@@ -72,10 +72,14 @@ bergamotApi: TranslatorApi ─────────────────�
 ### Port protocol (versioned, tiny)
 
 - `{type:"availability", pair}` → `{type:"availability:result", value}`
-- `{type:"init", pair}` → `{type:"init:result", ok}` (loads/downloads model;
-  progress events `{type:"downloading"}` map to the existing banner hook)
-- `{type:"translate", id, text}` → `{type:"translate:result", id, text}`
+- `{type:"init", pair}` → `{type:"init:result", ok}` (loads/downloads model)
+- `{type:"translate", id, text}` → `{type:"translate:result", id, text}` or
+  `{type:"translate:error", id, message}`
 - Port disconnect (either side) tears down the translator for that connection.
+
+No separate download-progress message: bergamot availability reports
+`"downloadable"` whenever the pair exists, which routes through the existing
+`createTranslator` → "Preparing …" banner before `create()` runs.
 
 Request/response pairing by numeric `id` — the content side keeps a pending
 map; this is what makes per-sentence concurrency from `translate-pane.ts`
