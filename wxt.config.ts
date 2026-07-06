@@ -1,6 +1,26 @@
+import { resolve } from "node:path";
 import { defineConfig } from "wxt";
 
 export default defineConfig({
+  hooks: {
+    // Ship the bergamot worker trio verbatim (classic worker + importScripts +
+    // wasm — must NOT go through Vite's worker bundling). Firefox output only;
+    // the Chrome bundle stays bergamot-free.
+    "build:publicAssets": (wxt, assets) => {
+      if (wxt.config.browser !== "firefox") return;
+      const base = "node_modules/@browsermt/bergamot-translator/worker";
+      for (const file of [
+        "translator-worker.js",
+        "bergamot-translator-worker.js",
+        "bergamot-translator-worker.wasm",
+      ]) {
+        assets.push({
+          absoluteSrc: resolve(base, file),
+          relativeDest: `worker/${file}`,
+        });
+      }
+    },
+  },
   manifest: ({ browser }) => ({
     name: "Lingua Mirror",
     description:
@@ -10,6 +30,12 @@ export default defineConfig({
     ...(browser === "firefox" && {
       browser_specific_settings: {
         gecko: { id: "lingua-mirror@vuhoangvuong", strict_min_version: "128.0" },
+      },
+      // Bergamot: registry + model files come from Mozilla's S3 bucket, and
+      // the Emscripten glue needs wasm compilation in the background page.
+      host_permissions: ["https://bergamot.s3.amazonaws.com/*"],
+      content_security_policy: {
+        extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';",
       },
     }),
     icons: {
