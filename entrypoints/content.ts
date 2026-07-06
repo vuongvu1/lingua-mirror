@@ -1,3 +1,5 @@
+import { bergamotApi } from "../src/bergamot/client";
+import { BERGAMOT_PORT } from "../src/bergamot/protocol";
 import { TOGGLE_SPLIT, type ToggleSplitMessage } from "../src/messages";
 import { buildSplitView, type SplitView } from "../src/split-view";
 import { getSettings } from "../src/settings";
@@ -64,7 +66,7 @@ export default defineContentScript({
       const target = settings.leftLang;
       if (source === target) return; // same language: panes already mirror
 
-      const translatorApi = (globalThis as { Translator?: TranslatorApi }).Translator;
+      const translatorApi = resolveTranslatorApi();
       if (!translatorApi) {
         status.show("Translation isn't available in this browser.");
         return;
@@ -103,6 +105,16 @@ export default defineContentScript({
     });
   },
 });
+
+/** Native Translator API where the browser has it; bergamot proxy on Firefox. */
+function resolveTranslatorApi(): TranslatorApi | undefined {
+  const native = (globalThis as { Translator?: TranslatorApi }).Translator;
+  if (native) return native;
+  if (import.meta.env.BROWSER === "firefox") {
+    return bergamotApi(() => chrome.runtime.connect({ name: BERGAMOT_PORT }));
+  }
+  return undefined;
+}
 
 /**
  * Inject (or refresh) the highlight CSS rule; left in <head> on destroy

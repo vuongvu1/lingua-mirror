@@ -13,11 +13,11 @@ and the plans in `docs/superpowers/plans/` before changing behavior.
 - **WXT** (extension framework) + **Manifest V3** + **TypeScript** (strict, `noUncheckedIndexedAccess`).
 - **Vitest** + **happy-dom** for unit tests.
 - **Chrome/Edge, Chromium 138+** — required for the built-in on-device `Translator` API.
-- **Firefox 128+ (MV3)** — ports fully EXCEPT translation: Mozilla rejected the WICG
-  Translator API (standards-position negative), so the split/highlight works and
-  translation shows the "not available" banner. Build: `pnpm build:firefox`.
-  A Bergamot-wasm engine backend is the plotted fix (own spec, not yet built).
-- No backend, no runtime dependencies.
+- **Firefox 128+ (MV3)** — full support: Mozilla rejected the WICG Translator API
+  (standards-position negative), so translation there runs on the bundled Bergamot
+  engine (background script, `src/bergamot/`). Build: `pnpm build:firefox`.
+- No backend. One pinned runtime dependency: `@browsermt/bergamot-translator`
+  (Firefox engine).
 
 ## Commands
 
@@ -60,6 +60,7 @@ MUST:
 - `export type` / `import type` for type-only symbols.
 - `as const` or union types — never `enum`.
 - Route all tab messaging through `src/active-tab.ts`; reference message types via `src/messages.ts` (no string literals).
+- Engine map: content resolves the native `Translator` first, bergamot Port proxy on Firefox (`resolveTranslatorApi` in content.ts). Bergamot code must never reach the Chrome bundle (`import.meta.env.BROWSER` gates; purity check: `grep -ri bergamot .output/chrome-mv3/` = 0).
 - Only `src/settings.ts` reads/writes `chrome.storage`.
 - The extension's own UI (controls, dividers) lives in a **shadow root**; cloned page panes stay in **light DOM** so the site's CSS still renders them.
 - Guard `tab.id` with `!= null` (a tab id of `0` is valid; `noUncheckedIndexedAccess` makes `[tab]` possibly undefined).
